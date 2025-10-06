@@ -1,7 +1,8 @@
-package com.example.proyecto.controller;
+package com.example.backorders.Controller;
 
-import com.example.proyecto.model.Order;
-import com.example.proyecto.service.OrderService;
+import com.example.backorders.model.Order;
+import com.example.backorders.service.OrderService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
