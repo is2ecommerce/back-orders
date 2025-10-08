@@ -24,6 +24,24 @@ public class OrderService {
         return orderRepository.findById(id);
     }
 
+    public java.util.List<com.example.backorders.dto.OrderSummaryDTO> getOrdersByUserId(String userId) {
+        java.util.List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        java.util.List<com.example.backorders.dto.OrderSummaryDTO> result = new java.util.ArrayList<>();
+
+        for (Order o : orders) {
+            java.util.List<com.example.backorders.dto.OrderItemDTO> items = new java.util.ArrayList<>();
+            if (o.getItems() != null) {
+                for (com.example.backorders.model.OrderItem it : o.getItems()) {
+                    Long pid = it.getProduct() != null ? it.getProduct().getId() : null;
+                    items.add(new com.example.backorders.dto.OrderItemDTO(pid, it.getQuantity(), it.getPrice()));
+                }
+            }
+            result.add(new com.example.backorders.dto.OrderSummaryDTO(o.getId(), o.getCreatedAt(), o.getStatus(), o.getTotalAmount(), items));
+        }
+
+        return result;
+    }
+
     public Optional<Order> cancelOrder(Long id) {
         Optional<Order> orderOpt = orderRepository.findById(id);
 

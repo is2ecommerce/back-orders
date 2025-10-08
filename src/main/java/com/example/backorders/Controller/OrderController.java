@@ -45,4 +45,16 @@ public class OrderController {
             return ResponseEntity.badRequest().body("No se puede cancelar esta orden");
         }
     }
+
+    // GET /orders/user/{userId} - historial del usuario autenticado
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<?> getOrdersByUser(@PathVariable String userId, java.security.Principal principal) {
+        // Seguridad simple: permitir solo si el principal corresponde al userId solicitado
+        if (principal == null || !principal.getName().equals(userId)) {
+            return ResponseEntity.status(403).body(java.util.Map.of("error", "No autorizado"));
+        }
+
+        java.util.List<com.example.backorders.dto.OrderSummaryDTO> orders = orderService.getOrdersByUserId(userId);
+        return ResponseEntity.ok(orders);
+    }
 }

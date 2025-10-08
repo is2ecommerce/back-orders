@@ -12,6 +12,7 @@ public class Order {
     private Long id;
 
     private String status; // pending, completed, cancelled
+    private String userId; // id del usuario propietario de la orden (desde Keycloak / JWT)
     private Double totalAmount;
     private Date createdAt = new Date();
 
@@ -33,6 +34,14 @@ public class Order {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public Double getTotalAmount() {
