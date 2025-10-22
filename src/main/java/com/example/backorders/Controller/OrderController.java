@@ -1,4 +1,4 @@
-package com.example.backorders.Controller;
+package com.example.backorders.controller;
 
 import com.example.backorders.model.Order;
 import com.example.backorders.service.OrderService;
@@ -56,5 +56,20 @@ public class OrderController {
 
         java.util.List<com.example.backorders.dto.OrderSummaryDTO> orders = orderService.getOrdersByUserId(userId);
         return ResponseEntity.ok(orders);
+    }
+
+    @PostMapping("/{id}/payment")
+    public ResponseEntity<?> payOrder(@PathVariable Long id) {
+        Optional<Order> existing = orderService.getOrderById(id);
+        if (!existing.isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Optional<Order> paid = orderService.payOrder(id);
+        if (paid.isPresent()) {
+            return ResponseEntity.ok(paid.get());
+        } else {
+            return ResponseEntity.status(409).body("No se pudo procesar el pago: estado de la orden no es 'pending'.");
+        }
     }
 }
