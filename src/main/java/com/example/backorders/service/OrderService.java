@@ -21,6 +21,45 @@ public class OrderService {
         return orderRepository.findById(id);
     }
 
+    public Optional<Order> confirmDelivery(Long id, String userId) {
+        Optional<Order> orderOpt = orderRepository.findById(id);
+        if (!orderOpt.isPresent()) {
+            return Optional.empty();
+        }
+
+        Order order = orderOpt.get();
+        
+        // Validar que la orden pertenece al usuario
+        if (!userId.equals(order.getUserId())) {
+            return Optional.empty();
+        }
+
+        // Validar estado actual
+        String currentState = order.getStatus();
+        if (!"en camino".equals(currentState) && !"pendiente de entrega".equals(currentState)) {
+            throw new OrderStateException(currentState, "en camino/pendiente de entrega");
+        }
+
+        // Actualizar estado
+        order.setStatus("entregada");
+        orderRepository.save(order);
+
+        // Simular envío de notificación
+        sendDeliveryConfirmationNotification(order);
+
+        return Optional.of(order);
+    }
+
+    private void sendDeliveryConfirmationNotification(Order order) {
+        // Simulación de envío de notificación
+        System.out.println("Notificación enviada al usuario " + order.getUserId() + 
+                          ": Su orden #" + order.getId() + " ha sido confirmada como entregada.");
+    }
+
+    public Optional<Order> getOrderById(Long id) {
+        return orderRepository.findById(id);
+    }
+
     public java.util.List<com.example.backorders.dto.OrderSummaryDTO> getOrdersByUserId(String userId) {
         java.util.List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
         java.util.List<com.example.backorders.dto.OrderSummaryDTO> result = new java.util.ArrayList<>();

@@ -72,4 +72,26 @@ public class OrderController {
             return ResponseEntity.status(409).body("No se pudo procesar el pago: estado de la orden no es 'pending'.");
         }
     }
+
+    @PatchMapping("/{orderId}/status")
+    public ResponseEntity<?> confirmDelivery(@PathVariable Long orderId, java.security.Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "No autenticado"));
+        }
+
+        try {
+            Optional<Order> confirmed = orderService.confirmDelivery(orderId, principal.getName());
+            if (!confirmed.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(confirmed.get());
+        } catch (OrderStateException ex) {
+            return ResponseEntity.status(409)
+                .body(Map.of(
+                    "error", ex.getMessage(),
+                    "currentState", ex.getCurrentState(),
+                    "requiredState", ex.getRequiredState()
+                ));
+        }
+    }
 }
