@@ -5,11 +5,8 @@ import com.example.backorders.model.OrderItem;
 import com.example.backorders.model.Product;
 import com.example.backorders.Repositories.OrderRepositorio;
 import com.example.backorders.Repositories.ProductRepositorio;
-import org.springframework.stereotype.Service;
 
 import java.util.Optional;
-
-@Service
 public class OrderService {
 
     private final OrderRepositorio orderRepository;
@@ -66,6 +63,22 @@ public class OrderService {
         }
 
         return Optional.empty();
+    }
+
+    // Nuevo: procesar pago y marcar como "pagada"
+    public Optional<Order> payOrder(Long id) {
+        Optional<Order> orderOpt = orderRepository.findById(id);
+        if (!orderOpt.isPresent()) {
+            return Optional.empty();
+        }
+        Order order = orderOpt.get();
+        // Solo permitir pago si está en estado "pending"
+        if (!"pending".equals(order.getStatus())) {
+            return Optional.empty();
+        }
+        order.setStatus("pagada");
+        orderRepository.save(order);
+        return Optional.of(order);
     }
 }
 
