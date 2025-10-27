@@ -6,6 +6,9 @@ import com.example.backorders.model.Product;
 import com.example.backorders.Repositories.OrderRepositorio;
 import com.example.backorders.Repositories.ProductRepositorio;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Optional;
 public class OrderService {
 
@@ -54,10 +57,6 @@ public class OrderService {
         // Simulación de envío de notificación
         System.out.println("Notificación enviada al usuario " + order.getUserId() + 
                           ": Su orden #" + order.getId() + " ha sido confirmada como entregada.");
-    }
-
-    public Optional<Order> getOrderById(Long id) {
-        return orderRepository.findById(id);
     }
 
     public java.util.List<com.example.backorders.dto.OrderSummaryDTO> getOrdersByUserId(String userId) {
@@ -118,6 +117,48 @@ public class OrderService {
         order.setStatus("pagada");
         orderRepository.save(order);
         return Optional.of(order);
+    }
+
+    // Nuevo: filtrar órdenes por status y rango de fechas (startDate/endDate en formato yyyy-MM-dd)
+    public java.util.List<com.example.backorders.dto.OrderSummaryDTO> getOrdersByFilter(String status, String startDate, String endDate) {
+        LocalDateTime start = null;
+        LocalDateTime end = null;
+
+        try {
+            if (startDate != null && !startDate.isBlank()) {
+                LocalDate sd = LocalDate.parse(startDate);
+                start = sd.atStartOfDay();
+            }
+            if (endDate != null && !endDate.isBlank()) {
+                LocalDate ed = LocalDate.parse(endDate);
+                end = ed.atTime(LocalTime.MAX);
+            }
+        } catch (java.time.format.DateTimeParseException ex) {
+            throw new IllegalArgumentException("Fechas inválidas. Formato esperado: yyyy-MM-dd");
+        }
+
+        java.util.List<Order> orders = orderRepository.findByFilter(status, start, end);
+        java.util.List<com.example.backorders.dto.OrderSummaryDTO> result = new java.util.ArrayList<>();
+
+        for (Order o : orders) {
+            java.util.List<com.example.backorders.dto.OrderItemDTO> items = new java.util.ArrayList<>();
+            if (o.getItems() != null) {
+                for (com.example.backorders.model.OrderItem it : o.getItems()) {
+                    Long pid = it.getProduct() != null ? it.getProduct().getId() : null;
+                    items.add(new com.example.backorders.dto.OrderItemDTO(pid, it.getQuantity(), it.getPrice()));
+                }
+            }
+            result.add(new com.example.backorders.dto.OrderSummaryDTO(o.getId(), o.getCreatedAt(), o.getStatus(), o.getTotalAmount(), items));
+        }
+
+        return result;
+    }
+
+    // Runtime exception for invalid order state transitions
+    public static class OrderStateException extends RuntimeException {
+        public OrderStateException(String currentState, String expectedState) {
+            super("Estado inválido: " + currentState + ". Se esperaba: " + expectedState + ".");
+        }
     }
 }
 
