@@ -7,11 +7,18 @@ import java.util.List;
 @Entity
 @Table(name = "orders")
 public class Order {
+    public static final String STATUS_PENDING = "pendiente";
+    public static final String STATUS_COMPLETED = "completada";
+    public static final String STATUS_CANCELLED = "cancelada";
+    public static final String STATUS_IN_DELIVERY = "en camino";
+    public static final String STATUS_PENDING_DELIVERY = "pendiente de entrega";
+    public static final String STATUS_DELIVERED = "entregada";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String status; // pending, completed, cancelled
+    private String status;
     private String userId; // id del usuario propietario de la orden (desde Keycloak / JWT)
     private Double totalAmount;
     private Date createdAt = new Date();

@@ -50,6 +50,61 @@ public class OrderService {
         return Optional.of(order);
     }
 
+    public Order updateOrderStatus(Long orderId, String newStatus) {
+        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        if (!orderOpt.isPresent()) {
+            throw new RuntimeException("Orden no encontrada");
+        }
+
+        Order order = orderOpt.get();
+        validateOrderNotCancelled(order);
+        
+        // Validar que el nuevo estado sea válido
+        validateNewStatus(newStatus);
+        
+        order.setStatus(newStatus);
+        return orderRepository.save(order);
+    }
+
+    public Order processPayment(Long orderId) {
+        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        if (!orderOpt.isPresent()) {
+            throw new RuntimeException("Orden no encontrada");
+        }
+
+        Order order = orderOpt.get();
+        validateOrderNotCancelled(order);
+
+        // Aquí iría la lógica de procesamiento del pago
+        // Por ahora solo actualizamos el estado
+        order.setStatus(Order.STATUS_COMPLETED);
+        return orderRepository.save(order);
+    }
+
+    private void validateOrderNotCancelled(Order order) {
+        if (Order.STATUS_CANCELLED.equals(order.getStatus())) {
+            throw new OrderStateException(order.getStatus(), "activo");
+        }
+    }
+
+    private void validateNewStatus(String newStatus) {
+        if (!isValidStatus(newStatus)) {
+            throw new IllegalArgumentException("Estado inválido: " + newStatus);
+        }
+    }
+
+    private boolean isValidStatus(String status) {
+        return status.equals(Order.STATUS_PENDING) ||
+               status.equals(Order.STATUS_COMPLETED) ||
+               status.equals(Order.STATUS_CANCELLED) ||
+               status.equals(Order.STATUS_IN_DELIVERY) ||
+               status.equals(Order.STATUS_PENDING_DELIVERY) ||
+               status.equals(Order.STATUS_DELIVERED);
+    }
+
+        return Optional.of(order);
+    }
+
     private void sendDeliveryConfirmationNotification(Order order) {
         // Simulación de envío de notificación
         System.out.println("Notificación enviada al usuario " + order.getUserId() + 

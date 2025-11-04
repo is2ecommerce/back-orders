@@ -46,6 +46,35 @@ public class OrderController {
         }
     }
 
+    // PATCH /orders/{orderId}/status
+    @PatchMapping("/{orderId}/status")
+    public ResponseEntity<?> updateOrderStatus(
+            @PathVariable Long orderId,
+            @RequestParam String newStatus) {
+        try {
+            Order updatedOrder = orderService.updateOrderStatus(orderId, newStatus);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (OrderStateException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // POST /orders/{orderId}/payment
+    @PostMapping("/{orderId}/payment")
+    public ResponseEntity<?> processPayment(
+            @PathVariable Long orderId) {
+        try {
+            Order updatedOrder = orderService.processPayment(orderId);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (OrderStateException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     // GET /orders/user/{userId} - historial del usuario autenticado
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getOrdersByUser(@PathVariable String userId, java.security.Principal principal) {
