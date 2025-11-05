@@ -3,6 +3,7 @@ package com.example.backorders.controller;
 import com.example.backorders.model.Order;
 import com.example.backorders.service.OrderService;
 import com.example.backorders.exceptions.OrderStateException;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -105,22 +106,7 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
     }
 
-    @PostMapping("/{id}/payment")
-    public ResponseEntity<?> payOrder(@PathVariable Long id) {
-        Optional<Order> existing = orderService.getOrderById(id);
-        if (!existing.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        Optional<Order> paid = orderService.payOrder(id);
-        if (paid.isPresent()) {
-            return ResponseEntity.ok(paid.get());
-        } else {
-            return ResponseEntity.status(409).body("No se pudo procesar el pago: estado de la orden no es 'pending'.");
-        }
-    }
-
-    @PatchMapping("/{orderId}/status")
+    @PatchMapping("/{orderId}/confirm-delivery")
     public ResponseEntity<?> confirmDelivery(@PathVariable Long orderId, java.security.Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(401).body(Map.of("error", "No autenticado"));

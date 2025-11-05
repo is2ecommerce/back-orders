@@ -9,6 +9,7 @@ import java.util.List;
 public class Order {
     public static final String STATUS_PENDING = "pendiente";
     public static final String STATUS_COMPLETED = "completada";
+    public static final String STATUS_PAID = "pagada";
     public static final String STATUS_CANCELLED = "cancelada";
     public static final String STATUS_IN_DELIVERY = "en camino";
     public static final String STATUS_PENDING_DELIVERY = "pendiente de entrega";
