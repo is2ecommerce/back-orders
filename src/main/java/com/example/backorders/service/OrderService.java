@@ -1,5 +1,3 @@
-package com.example.backorders.service;
-
 import com.example.backorders.model.Order;
 import com.example.backorders.model.OrderItem;
 import com.example.backorders.model.Product;
@@ -22,6 +20,17 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.List;
 import java.util.ArrayList;
+import java.math.BigDecimal;
+
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.TextAlignment;
+import java.io.ByteArrayOutputStream;
+
 
 @Service
 @Transactional
@@ -167,7 +176,79 @@ public class OrderService {
                 items
         );
     }
+
+    // ==============================================================
+    // HU-5: GENERAR RECIBO DE PAGO EN PDF
+    // ==============================================================
+    public byte[] generateReceiptPdf(Order order) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            // === ENCABEZADO ===
+            document.add(new Paragraph("RECIBO DE PAGO")
+                    .setFontSize(20)
+                    .setBold()
+                    .setTextAlignment(TextAlignment.CENTER));
+
+            document.add(new Paragraph("IS2 E-COMMERCE")
+                    .setFontSize(12)
+                    .setTextAlignment(TextAlignment.CENTER));
+
+            document.add(new Paragraph("\n"));
+
+            // === DATOS PRINCIPALES ===
+            Table table = new Table(2).useAllAvailableWidth();
+            table.addCell(createCell("Orden ID:"));
+            table.addCell(createCell(order.getId().toString()));
+
+            table.addCell(createCell("Fecha:"));
+            table.addCell(createCell(order.getCreatedAt().toString()));
+
+            table.addCell(createCell("Estado:"));
+            table.addCell(createCell(order.getStatus()));
+
+            table.addCell(createCell("Total:"));
+            table.addCell(createCell("$" + order.getTotalAmount()));
+
+            document.add(table);
+            document.add(new Paragraph("\n"));
+
+            // === DETALLE DE PRODUCTOS ===
+            document.add(new Paragraph("Detalles:")
+                    .setBold()
+                    .setFontSize(14));
+
+            Table itemsTable = new Table(new float[]{3, 1, 2}).useAllAvailableWidth();
+            itemsTable.addHeaderCell("Producto");
+            itemsTable.addHeaderCell("Cant.");
+            itemsTable.addHeaderCell("Precio");
+
+            for (OrderItem item : order.getItems()) {
+                Product p = item.getProduct();
+                itemsTable.addCell(p != null ? p.getName() : "N/A");
+                itemsTable.addCell(String.valueOf(item.getQuantity()));
+                itemsTable.addCell("$" + item.getPrice());
+            }
+
+            document.add(itemsTable);
+            document.add(new Paragraph("\n¡Gracias por su compra!")
+                .setTextAlignment(TextAlignment.CENTER));
+
+            document.close();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Error generando PDF", e);
+        }
+    }
+
+    private Cell createCell(String content) {
+        return new Cell().add(new Paragraph(content)).setPadding(5);
+    }
 }
+
 
 
 
