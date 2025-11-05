@@ -2,10 +2,13 @@ package com.example.backorders.controller;
 
 import com.example.backorders.model.Order;
 import com.example.backorders.service.OrderService;
+import com.example.backorders.exceptions.OrderStateException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -46,45 +49,54 @@ public class OrderController {
         }
     }
 
-    // PATCH /orders/{orderId}/status
-    @PatchMapping("/{orderId}/status")
-    public ResponseEntity<?> updateOrderStatus(
-            @PathVariable Long orderId,
-            @RequestParam String newStatus) {
-        try {
-            Order updatedOrder = orderService.updateOrderStatus(orderId, newStatus);
-            return ResponseEntity.ok(updatedOrder);
-        } catch (OrderStateException e) {
-            return ResponseEntity.status(403).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
 
-    // POST /orders/{orderId}/payment
-    @PostMapping("/{orderId}/payment")
-    public ResponseEntity<?> processPayment(
-            @PathVariable Long orderId) {
-        try {
-            Order updatedOrder = orderService.processPayment(orderId);
-            return ResponseEntity.ok(updatedOrder);
-        } catch (OrderStateException e) {
-            return ResponseEntity.status(403).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
+    // ======================
+    // HU-4: HISTORIAL CON FILTROS Y PAGINACIÓN
+    // ruta completa con filtros
+    @GetMapping("/user/{userId}/completa")
+    public ResponseEntity<?> getOrdersByUser(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String fechaInicio,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Principal principal) {
 
+        try {
+        
+            if (principal == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuario no autenticado"));
+           }
+
+            // Valida que el usuario autenticado sea el mismo
+            String username = principal.getName();
+            if (!username.equals(userId.toString())) {
+                return ResponseEntity.status(403).body(Map.of("error", "No autorizado para ver estas órdenes"));
+            }
+
+            // Llama al servicio
+        var ordersPage = orderService.getOrdersByUserId(userId.toString(), status, fechaInicio, page, size);
+        return ResponseEntity.ok(ordersPage);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", "Error interno del servidor", "detalle", e.getMessage()));
+        }
+   }
+
+
+    // ======================
     // GET /orders/user/{userId} - historial del usuario autenticado
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getOrdersByUser(@PathVariable String userId, java.security.Principal principal) {
-        // Seguridad simple: permitir solo si el principal corresponde al userId solicitado
+    // ruta simple sin filtros
+    @GetMapping("/user/{userId}/simple")
+    public ResponseEntity<?> getOrdersByUser(@PathVariable String userId, Principal principal) {
+        // Seguridad: solo el dueño ve sus órdenes
         if (principal == null || !principal.getName().equals(userId)) {
-            return ResponseEntity.status(403).body(java.util.Map.of("error", "No autorizado"));
+            return ResponseEntity.status(403)
+                    .body(Map.of("error", "No autorizado"));
         }
 
-        java.util.List<com.example.backorders.dto.OrderSummaryDTO> orders = orderService.getOrdersByUserId(userId);
-        return ResponseEntity.ok(orders);
+        return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
     }
 
     @PostMapping("/{id}/payment")
@@ -117,10 +129,12 @@ public class OrderController {
         } catch (OrderStateException ex) {
             return ResponseEntity.status(409)
                 .body(Map.of(
-                    "error", ex.getMessage(),
+          
+                "error", ex.getMessage(),
                     "currentState", ex.getCurrentState(),
                     "requiredState", ex.getRequiredState()
                 ));
         }
     }
 }
+
