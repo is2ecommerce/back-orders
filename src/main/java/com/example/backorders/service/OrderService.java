@@ -3,16 +3,34 @@ package com.example.backorders.service;
 import com.example.backorders.model.Order;
 import com.example.backorders.model.OrderItem;
 import com.example.backorders.model.Product;
-import com.example.backorders.Repositories.OrderRepositorio;
-import com.example.backorders.Repositories.ProductRepositorio;
+import com.example.backorders.Repositories.OrderRepository;
+import com.example.backorders.Repositories.ProductRepository;
+import com.example.backorders.exceptions.OrderStateException;
+import com.example.backorders.dto.OrderSummaryDTO;
+import com.example.backorders.dto.OrderItemDTO;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.Date;
 import java.util.Optional;
+import java.util.List;
+import java.util.ArrayList;
+
+@Service
+@Transactional
 public class OrderService {
 
-    private final OrderRepositorio orderRepository;
-    private final ProductRepositorio productRepository;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
 
-    public OrderService(OrderRepositorio orderRepository, ProductRepositorio productRepository) {
+    public OrderService(OrderRepository orderRepository, ProductRepository productRepository) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
     }
@@ -23,111 +41,43 @@ public class OrderService {
 
     public Optional<Order> confirmDelivery(Long id, String userId) {
         Optional<Order> orderOpt = orderRepository.findById(id);
-        if (!orderOpt.isPresent()) {
-            return Optional.empty();
-        }
+        if (orderOpt.isEmpty()) return Optional.empty();
 
         Order order = orderOpt.get();
-        
-        // Validar que la orden pertenece al usuario
-        if (!userId.equals(order.getUserId())) {
+
+        if (order.getUserId() == null || !order.getUserId().equals(userId)) {
             return Optional.empty();
         }
 
-        // Validar estado actual
         String currentState = order.getStatus();
         if (!"en camino".equals(currentState) && !"pendiente de entrega".equals(currentState)) {
             throw new OrderStateException(currentState, "en camino/pendiente de entrega");
         }
 
-        // Actualizar estado
         order.setStatus("entregada");
         orderRepository.save(order);
-
-        // Simular envío de notificación
         sendDeliveryConfirmationNotification(order);
-
-        return Optional.of(order);
-    }
-
-    public Order updateOrderStatus(Long orderId, String newStatus) {
-        Optional<Order> orderOpt = orderRepository.findById(orderId);
-        if (!orderOpt.isPresent()) {
-            throw new RuntimeException("Orden no encontrada");
-        }
-
-        Order order = orderOpt.get();
-        validateOrderNotCancelled(order);
-        
-        // Validar que el nuevo estado sea válido
-        validateNewStatus(newStatus);
-        
-        order.setStatus(newStatus);
-        return orderRepository.save(order);
-    }
-
-    public Order processPayment(Long orderId) {
-        Optional<Order> orderOpt = orderRepository.findById(orderId);
-        if (!orderOpt.isPresent()) {
-            throw new RuntimeException("Orden no encontrada");
-        }
-
-        Order order = orderOpt.get();
-        validateOrderNotCancelled(order);
-
-        // Aquí iría la lógica de procesamiento del pago
-        // Por ahora solo actualizamos el estado
-        order.setStatus(Order.STATUS_COMPLETED);
-        return orderRepository.save(order);
-    }
-
-    private void validateOrderNotCancelled(Order order) {
-        if (Order.STATUS_CANCELLED.equals(order.getStatus())) {
-            throw new OrderStateException(order.getStatus(), "activo");
-        }
-    }
-
-    private void validateNewStatus(String newStatus) {
-        if (!isValidStatus(newStatus)) {
-            throw new IllegalArgumentException("Estado inválido: " + newStatus);
-        }
-    }
-
-    private boolean isValidStatus(String status) {
-        return status.equals(Order.STATUS_PENDING) ||
-               status.equals(Order.STATUS_COMPLETED) ||
-               status.equals(Order.STATUS_CANCELLED) ||
-               status.equals(Order.STATUS_IN_DELIVERY) ||
-               status.equals(Order.STATUS_PENDING_DELIVERY) ||
-               status.equals(Order.STATUS_DELIVERED);
-    }
-
         return Optional.of(order);
     }
 
     private void sendDeliveryConfirmationNotification(Order order) {
-        // Simulación de envío de notificación
-        System.out.println("Notificación enviada al usuario " + order.getUserId() + 
-                          ": Su orden #" + order.getId() + " ha sido confirmada como entregada.");
+        System.out.println("Notificación enviada al usuario " + order.getUserId() +
+                ": Su orden #" + order.getId() + " ha sido confirmada como entregada.");
     }
 
-    public Optional<Order> getOrderById(Long id) {
-        return orderRepository.findById(id);
-    }
-
-    public java.util.List<com.example.backorders.dto.OrderSummaryDTO> getOrdersByUserId(String userId) {
-        java.util.List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
-        java.util.List<com.example.backorders.dto.OrderSummaryDTO> result = new java.util.ArrayList<>();
+    public List<OrderSummaryDTO> getOrdersByUserId(String userId) {
+        List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<OrderSummaryDTO> result = new ArrayList<>();
 
         for (Order o : orders) {
-            java.util.List<com.example.backorders.dto.OrderItemDTO> items = new java.util.ArrayList<>();
+            List<OrderItemDTO> items = new ArrayList<>();
             if (o.getItems() != null) {
-                for (com.example.backorders.model.OrderItem it : o.getItems()) {
+                for (OrderItem it : o.getItems()) {
                     Long pid = it.getProduct() != null ? it.getProduct().getId() : null;
-                    items.add(new com.example.backorders.dto.OrderItemDTO(pid, it.getQuantity(), it.getPrice()));
+                    items.add(new OrderItemDTO(pid, it.getQuantity(), it.getPrice()));
                 }
             }
-            result.add(new com.example.backorders.dto.OrderSummaryDTO(o.getId(), o.getCreatedAt(), o.getStatus(), o.getTotalAmount(), items));
+            result.add(new OrderSummaryDTO(o.getId(), o.getCreatedAt(), o.getStatus(), o.getTotalAmount(), items));
         }
 
         return result;
@@ -139,19 +89,21 @@ public class OrderService {
         if (orderOpt.isPresent()) {
             Order order = orderOpt.get();
 
-            if (!order.getStatus().equals("pending")) {
+            if (!"pendiente".equals(order.getStatus())) {
                 return Optional.empty();
             }
 
-            // Reponer stock
-            for (OrderItem item : order.getItems()) {
-                Product product = item.getProduct();
-                product.setStock(product.getStock() + item.getQuantity());
-                productRepository.save(product);  // <-- CORRECTO
+            if (order.getItems() != null) {
+                for (OrderItem item : order.getItems()) {
+                    if (item == null) continue;
+                    Product product = item.getProduct();
+                    if (product == null) continue;
+                    product.setStock(product.getStock() + item.getQuantity());
+                    productRepository.save(product);
+                }
             }
 
-            // Marcar orden cancelada
-            order.setStatus("cancelled");
+            order.setStatus("cancelada");
             orderRepository.save(order);
             return Optional.of(order);
         }
@@ -159,20 +111,63 @@ public class OrderService {
         return Optional.empty();
     }
 
-    // Nuevo: procesar pago y marcar como "pagada"
     public Optional<Order> payOrder(Long id) {
         Optional<Order> orderOpt = orderRepository.findById(id);
-        if (!orderOpt.isPresent()) {
-            return Optional.empty();
-        }
+        if (orderOpt.isEmpty()) return Optional.empty();
+
         Order order = orderOpt.get();
-        // Solo permitir pago si está en estado "pending"
-        if (!"pending".equals(order.getStatus())) {
-            return Optional.empty();
-        }
+        if (!"pendiente".equals(order.getStatus())) return Optional.empty();
+
         order.setStatus("pagada");
         orderRepository.save(order);
         return Optional.of(order);
     }
+
+    // ==============================================================
+    // FILTROS POR ESTADO + FECHA + PAGINACIÓN
+    // ==============================================================
+    public Page<OrderSummaryDTO> getOrdersByUserId(
+            String userId,
+            String status,
+            String fechaInicio,
+            int page,
+            int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Date fecha = null;
+        if (fechaInicio != null && !fechaInicio.isBlank()) {
+            try {
+                LocalDate localDate = LocalDate.parse(fechaInicio);
+                fecha = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+
+        // Simplificamos la lógica usando el método flexible del repositorio
+        return orderRepository.findByUserIdAndOptionalFilters(userId, status, fecha, pageable)
+                .map(this::toSummaryDTO);
+    }
+
+    private OrderSummaryDTO toSummaryDTO(Order order) {
+        List<OrderItemDTO> items = order.getItems() != null
+                ? order.getItems().stream()
+                        .map(it -> new OrderItemDTO(
+                                it.getProduct() != null ? it.getProduct().getId() : null,
+                                it.getQuantity(),
+                                it.getPrice()))
+                        .toList()
+                : List.of();
+
+        return new OrderSummaryDTO(
+                order.getId(),
+                order.getCreatedAt(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                items
+        );
+    }
 }
+
+
 
