@@ -4,12 +4,18 @@ import com.example.backorders.model.Order;
 import com.example.backorders.service.OrderService;
 import com.example.backorders.exceptions.OrderStateException;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/orders")
@@ -55,7 +61,7 @@ public class OrderController {
     // ruta completa con filtros
     @GetMapping("/user/{userId}/completa")
     public ResponseEntity<?> getOrdersByUser(
-            @PathVariable Long userId,
+            @PathVariable String userId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String fechaInicio,
             @RequestParam(defaultValue = "0") int page,
@@ -70,12 +76,12 @@ public class OrderController {
 
             // Valida que el usuario autenticado sea el mismo
             String username = principal.getName();
-            if (!username.equals(userId.toString())) {
+            if (!username.equals(userId)) {
                 return ResponseEntity.status(403).body(Map.of("error", "No autorizado para ver estas órdenes"));
             }
 
             // Llama al servicio
-        var ordersPage = orderService.getOrdersByUserId(userId.toString(), status, fechaInicio, page, size);
+            var ordersPage = orderService.getOrdersByUserId(userId, status, fechaInicio, page, size);
         return ResponseEntity.ok(ordersPage);
 
         } catch (Exception e) {
@@ -136,5 +142,48 @@ public class OrderController {
                 ));
         }
     }
+
+    // ==============================================================
+    // HU-5: VER RECIBO DE PAGO (PDF)
+    // ==============================================================
+    @GetMapping(value = "/{orderId}/receipt", produces = "application/pdf")
+    public ResponseEntity<byte[]> getPaymentReceipt(
+            @PathVariable Long orderId,
+            Principal principal) {
+
+        // 1. Validar autenticación (solo si hay seguridad activa)
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // 2. Buscar orden
+        Optional<Order> orderOpt = orderService.getOrderById(orderId);
+        if (orderOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+    Order order = orderOpt.get();
+
+        // 3. Validar propietario y estado de pago
+        if (!order.getUserId().toString().equals(principal.getName())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!"pagada".equalsIgnoreCase(order.getStatus())) {
+            return ResponseEntity.badRequest()
+                    .body("La orden no está pagada".getBytes());
+       }
+
+        // 4. Generar PDF con el servicio
+        byte[] pdfBytes = orderService.generateReceiptPdf(order);
+
+        // 5. Retornar respuesta con headers de descarga
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDispositionFormData("attachment", "recibo_orden_" + orderId + ".pdf");
+        headers.setContentType(MediaType.APPLICATION_PDF);
+
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+    }
+
 }
 
