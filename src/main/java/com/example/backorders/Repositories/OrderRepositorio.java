@@ -6,10 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.example.backorders.model.Order;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Date;
-
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
@@ -27,7 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByUserIdAndStatusIgnoreCase(String userId, String status, Pageable pageable);
 
     // Obtiene órdenes paginadas por userId y fecha posterior
-    Page<Order> findByUserIdAndCreatedAtAfter(String userId, LocalDateTime fecha, Pageable pageable);
+    Page<Order> findByUserIdAndCreatedAtAfter(String userId, Date fecha, Pageable pageable);
 
     // ===========================
     // CONSULTA COMBINADA PERSONALIZADA
@@ -46,4 +44,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         Pageable pageable
    );
 }
+
+
 
