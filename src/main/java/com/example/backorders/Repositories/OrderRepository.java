@@ -33,16 +33,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("""
         SELECT o FROM Order o
-        WHERE o.userId = :userId
-          AND (:status IS NULL OR LOWER(o.status) = LOWER(:status))
-          AND (:fecha IS NULL OR o.createdAt >= :fecha)
+        WHERE (:status IS NULL OR LOWER(o.status) = LOWER(:status))
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt <= :end)
+        ORDER BY o.createdAt DESC
     """)
-    Page<Order> findByUserIdAndOptionalFilters(
-        @Param("userId") String userId,
+    List<Order> findByFilter(
         @Param("status") String status,
-        @Param("fecha") Date fecha,
-        Pageable pageable
-   );
+        @Param("start") Date start,
+        @Param("end") Date end
+    );
 }
 
 
